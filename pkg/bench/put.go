@@ -18,6 +18,7 @@
 package bench
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net/http"
@@ -83,25 +84,51 @@ func (u *Put) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 					Endpoint: client.EndpointURL().String(),
 				}
 				op.Start = time.Now()
-				res, err := client.PutObject(nonTerm, u.Bucket, obj.Name, obj.Reader, obj.Size, opts)
+
+				myTerm, _ := context.WithTimeout(nonTerm, time.Duration((obj.Size/1024)+1)*time.Second)
+				reader := bufio.NewReader(obj.Reader)
+
+				res, err := client.PutObject(myTerm, u.Bucket, obj.Name, reader, obj.Size, opts)
+				//res, err := client.PutObject(nonTerm, u.Bucket, obj.Name, obj.Reader, obj.Size, opts)
 				op.End = time.Now()
+				writeLog := false
+				latency := op.End.Sub(op.Start).Seconds() * 1000
+
 				if err != nil {
 					u.Error("upload error: ", err)
 					op.Err = err.Error()
+					writeLog = true
+					m := make(map[string]interface{})
+					m["status"] = "err"
+					m["bucket"] = res.Bucket
+					m["object"] = res.Key
+					m["cost"] = latency
+					m["etag"] = res.ETag
+					m["size"] = res.Size
+					m["msg"] = op.Err
+					u.writeAccessLog(m)
 				}
 				obj.VersionID = res.VersionID
-				latency := op.End.Sub(op.Start).Seconds() * 1000
 				if res.Size != obj.Size && op.Err == "" {
 					err := fmt.Sprint("short upload. want:", obj.Size, ", got:", res.Size)
 					if op.Err == "" {
 						op.Err = err
 					}
 					u.Error(err)
-
-					u.writeAccessLog(fmt.Sprintf("status: %s bucket: %s object: %s cost: %.2f etag: %s size: %d \n", "err", res.Bucket, res.Key, latency, res.ETag, res.Size))
-				} else {
-					u.writeAccessLog(fmt.Sprintf("status: %s bucket: %s object: %s cost: %.2f etag: %s size: %d \n", "succ", res.Bucket, res.Key, latency, res.ETag, res.Size))
 				}
+
+				if !writeLog {
+					m := make(map[string]interface{})
+					m["status"] = "succ"
+					m["bucket"] = res.Bucket
+					m["object"] = res.Key
+					m["cost"] = latency
+					m["etag"] = res.ETag
+					m["size"] = res.Size
+					m["msg"] = op.Err
+					u.writeAccessLog(m)
+				}
+
 				op.Size = res.Size
 				cldone()
 				rcv <- op

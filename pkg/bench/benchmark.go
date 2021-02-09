@@ -19,6 +19,7 @@ package bench
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -145,11 +146,16 @@ func (c *Common) createAccessLog(ctx context.Context, logpath string) error {
 	return nil
 }
 
-func (c *Common) writeAccessLog(content string) error {
+func (c *Common) writeAccessLog(content map[string]interface{}) error {
 	if c.AccessLog == nil {
 		return errors.New("access log not init...")
 	}
-	_, err := c.AccessLog.Write([]byte(content))
+	bytes, e := json.Marshal(content)
+	if e != nil {
+		return e
+	}
+	_, err := c.AccessLog.Write(bytes)
+	c.AccessLog.Write([]byte("\n"))
 	return err
 }
 
