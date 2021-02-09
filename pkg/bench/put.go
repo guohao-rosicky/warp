@@ -98,9 +98,9 @@ func (u *Put) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 					}
 					u.Error(err)
 
-					u.writeAccessLog(fmt.Sprintf("status: %s bucket: %s object: %s cost: %.2f etag: %s size: %d", "err", res.Bucket, res.Key, latency, res.ETag, res.Size))
+					u.writeAccessLog(fmt.Sprintf("status: %s bucket: %s object: %s cost: %.2f etag: %s size: %d \n", "err", res.Bucket, res.Key, latency, res.ETag, res.Size))
 				} else {
-					u.writeAccessLog(fmt.Sprintf("status: %s bucket: %s object: %s cost: %.2f etag: %s size: %d", "succ", res.Bucket, res.Key, latency, res.ETag, res.Size))
+					u.writeAccessLog(fmt.Sprintf("status: %s bucket: %s object: %s cost: %.2f etag: %s size: %d \n", "succ", res.Bucket, res.Key, latency, res.ETag, res.Size))
 				}
 				op.Size = res.Size
 				cldone()
