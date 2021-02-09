@@ -135,24 +135,30 @@ func (c *csvSource) Object() *Object {
 	//var dst = c.buf.data[:0]
 	dst := make([]byte, 0)
 	c.obj.Size = c.o.getSize(c.rng)
-	for i := 0; i < opts.rows; i++ {
-		for j := 0; j < opts.cols; j++ {
-			fieldLen := 1 + opts.minLen
-			if opts.minLen != opts.maxLen {
-				fieldLen += c.rng.Intn(opts.maxLen - opts.minLen)
+
+	for int64(len(dst)) <= c.obj.Size {
+
+		for i := 0; i < opts.rows; i++ {
+			for j := 0; j < opts.cols; j++ {
+				fieldLen := 1 + opts.minLen
+				if opts.minLen != opts.maxLen {
+					fieldLen += c.rng.Intn(opts.maxLen - opts.minLen)
+				}
+				build := c.builder[:fieldLen]
+				randASCIIBytes(build[:fieldLen-1], c.rng)
+				build[fieldLen-1] = opts.comma
+				if j == opts.cols-1 {
+					build[fieldLen-1] = '\n'
+				}
+				dst = append(dst, build...)
 			}
-			build := c.builder[:fieldLen]
-			randASCIIBytes(build[:fieldLen-1], c.rng)
-			build[fieldLen-1] = opts.comma
-			if j == opts.cols-1 {
-				build[fieldLen-1] = '\n'
-			}
-			dst = append(dst, build...)
 		}
+
 	}
+
 	//c.buf.data = dst
 	//c.obj.Reader = c.buf.Reset(0)
-	c.obj.Reader = bytes.NewReader(dst)
+	c.obj.Reader = bytes.NewReader(dst[:c.obj.Size])
 
 	var nBuf [16]byte
 	randASCIIBytes(nBuf[:], c.rng)
