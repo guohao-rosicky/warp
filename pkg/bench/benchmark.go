@@ -19,8 +19,10 @@ package bench
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
+	"os"
 	"sync"
 	"time"
 
@@ -67,6 +69,9 @@ type Common struct {
 
 	// Default Put options.
 	PutOpts minio.PutObjectOptions
+
+	// add by guo.hao
+	AccessLog *os.File
 
 	// Error should log an error similar to fmt.Print(data...)
 	Error func(data ...interface{})
@@ -128,6 +133,31 @@ func (c *Common) createEmptyBucket(ctx context.Context) error {
 		c.deleteAllInBucket(ctx)
 	}
 	return nil
+}
+
+// add by guo.hao
+func (c *Common) createAccessLog(ctx context.Context, logpath string) error {
+	new_file, err := os.Create(logpath)
+	if err != nil {
+		return err
+	}
+	c.AccessLog = new_file
+	return nil
+}
+
+func (c *Common) writeAccessLog(content string) error {
+	if c.AccessLog == nil {
+		return errors.New("access log not init...")
+	}
+	_, err := c.AccessLog.Write([]byte(content))
+	return err
+}
+
+func (c *Common) closeAccessLog() error {
+	if c.AccessLog == nil {
+		return errors.New("access log not init...")
+	}
+	return c.AccessLog.Close()
 }
 
 // deleteAllInBucket will delete all content in a bucket.

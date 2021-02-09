@@ -29,10 +29,15 @@ import (
 type Put struct {
 	Common
 	prefixes map[string]struct{}
+	LogPath  string
 }
 
 // Prepare will create an empty bucket ot delete any content already there.
 func (u *Put) Prepare(ctx context.Context) error {
+	e := u.createAccessLog(ctx, u.LogPath)
+	if e != nil {
+		return e
+	}
 	return u.createEmptyBucket(ctx)
 }
 
@@ -85,13 +90,17 @@ func (u *Put) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 					op.Err = err.Error()
 				}
 				obj.VersionID = res.VersionID
-
+				latency := op.End.Sub(op.Start).Seconds() * 1000
 				if res.Size != obj.Size && op.Err == "" {
 					err := fmt.Sprint("short upload. want:", obj.Size, ", got:", res.Size)
 					if op.Err == "" {
 						op.Err = err
 					}
 					u.Error(err)
+
+					u.writeAccessLog(fmt.Sprintf("status: %s bucket: %s object: %s cost: %.2f etag: %s size: %d", "err", res.Bucket, res.Key, latency, res.ETag, res.Size))
+				} else {
+					u.writeAccessLog(fmt.Sprintf("status: %s bucket: %s object: %s cost: %.2f etag: %s size: %d", "succ", res.Bucket, res.Key, latency, res.ETag, res.Size))
 				}
 				op.Size = res.Size
 				cldone()
@@ -100,6 +109,9 @@ func (u *Put) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 		}(i)
 	}
 	wg.Wait()
+
+	u.closeAccessLog()
+
 	return c.Close(), nil
 }
 

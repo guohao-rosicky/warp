@@ -66,6 +66,7 @@ func mainPut(ctx *cli.Context) error {
 			Location:    "",
 			PutOpts:     putOpts(ctx),
 		},
+		LogPath: ctx.String("logpath"), // add by guo.hao
 	}
 	return runBench(ctx, &b)
 }
