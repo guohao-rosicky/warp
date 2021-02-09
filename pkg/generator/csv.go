@@ -18,6 +18,7 @@
 package generator
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -116,7 +117,7 @@ func newCsv(o Options) (Source, error) {
 		o: o,
 	}
 	c.builder = make([]byte, 0, o.csv.maxLen+1)
-	c.buf = newCircularBuffer(make([]byte, o.csv.maxLen*(o.csv.cols+1)*(o.csv.rows+1)), o.totalSize)
+	//c.buf = newCircularBuffer(make([]byte, o.csv.maxLen*(o.csv.cols+1)*(o.csv.rows+1)), o.totalSize)
 	rndSrc := rand.NewSource(int64(rand.Uint64()))
 	if o.csv.seed != nil {
 		rndSrc = rand.NewSource(*o.csv.seed)
@@ -131,7 +132,8 @@ func newCsv(o Options) (Source, error) {
 
 func (c *csvSource) Object() *Object {
 	opts := c.o.csv
-	var dst = c.buf.data[:0]
+	//var dst = c.buf.data[:0]
+	dst := make([]byte, 0)
 	c.obj.Size = c.o.getSize(c.rng)
 	for i := 0; i < opts.rows; i++ {
 		for j := 0; j < opts.cols; j++ {
@@ -148,8 +150,10 @@ func (c *csvSource) Object() *Object {
 			dst = append(dst, build...)
 		}
 	}
-	c.buf.data = dst
-	c.obj.Reader = c.buf.Reset(0)
+	//c.buf.data = dst
+	//c.obj.Reader = c.buf.Reset(0)
+	c.obj.Reader = bytes.NewReader(dst)
+
 	var nBuf [16]byte
 	randASCIIBytes(nBuf[:], c.rng)
 	c.obj.setName(string(nBuf[:]) + ".csv")

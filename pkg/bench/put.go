@@ -18,7 +18,6 @@
 package bench
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"net/http"
@@ -86,9 +85,8 @@ func (u *Put) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 				op.Start = time.Now()
 
 				myTerm, _ := context.WithTimeout(nonTerm, time.Duration((obj.Size/1024)+1)*time.Second)
-				reader := bufio.NewReader(obj.Reader)
 
-				res, err := client.PutObject(myTerm, u.Bucket, obj.Name, reader, obj.Size, opts)
+				res, err := client.PutObject(myTerm, u.Bucket, obj.Name, obj.Reader, obj.Size, opts)
 				//res, err := client.PutObject(nonTerm, u.Bucket, obj.Name, obj.Reader, obj.Size, opts)
 				op.End = time.Now()
 				writeLog := false
