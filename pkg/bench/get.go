@@ -95,50 +95,45 @@ func (g *Get) Prepare(ctx context.Context) error {
 				break
 			}
 
-			for i := 0; i < g.Concurrency; i++ {
-				go func(i int) {
-					defer wg.Done()
-					for range obj {
-						client, cldone := g.Client()
-						//{"bucket":"test01","cost":946923.896776,"etag":"","msg":"","object":"lE7rQRnWDCmVKOXk.csv","size":97537030,"status":"succ"}
-						//{"bucket":"","cost":1200742.249267,"etag":"","msg":"Put \"http://ozone.s3gtest.qihoo.net/test01/M2QHUPjT5P%29NpQiX.csv\": net/http: timeout awaiting response headers","object":"","size":0,"status":"err"}
-						alog := make(map[string]interface{})
-						err1 := json.Unmarshal([]byte(strings.TrimSpace(line)), &alog)
-						if err1 != nil {
-							continue
-						}
-						s, ok := alog["status"]
-						if ok {
-							ss := s.(string)
-							if ss == "succ" {
-								Start := time.Now()
-								op := Operation{
-									OpType:   http.MethodPut,
-									Thread:   uint16(rand.Intn(g.Concurrency - 1)),
-									Size:     int64(alog["size"].(float64)),
-									File:     alog["object"].(string),
-									ObjPerOp: 1,
-									Endpoint: client.EndpointURL().String(),
-									Start:    Start,
-									End:      Start,
-								}
-
-								mu.Lock()
-								g.objects = append(g.objects, generator.Object{
-									Name: op.File,
-									Size: op.Size,
-								})
-								g.prepareProgress(float64(len(g.objects)) / float64(g.CreateObjects))
-								mu.Unlock()
-								rcv := g.Collector.Receiver()
-								rcv <- op
-							}
-						}
-						cldone()
-					}
-				}(i)
+			client, cldone := g.Client()
+			//{"bucket":"test01","cost":946923.896776,"etag":"","msg":"","object":"lE7rQRnWDCmVKOXk.csv","size":97537030,"status":"succ"}
+			//{"bucket":"","cost":1200742.249267,"etag":"","msg":"Put \"http://ozone.s3gtest.qihoo.net/test01/M2QHUPjT5P%29NpQiX.csv\": net/http: timeout awaiting response headers","object":"","size":0,"status":"err"}
+			alog := make(map[string]interface{})
+			err1 := json.Unmarshal([]byte(strings.TrimSpace(line)), &alog)
+			if err1 != nil {
+				continue
 			}
+			s, ok := alog["status"]
+			if ok {
+				ss := s.(string)
+				if ss == "succ" {
+					Start := time.Now()
+					op := Operation{
+						OpType:   http.MethodPut,
+						Thread:   uint16(rand.Intn(g.Concurrency - 1)),
+						Size:     int64(alog["size"].(float64)),
+						File:     alog["object"].(string),
+						ObjPerOp: 1,
+						Endpoint: client.EndpointURL().String(),
+						Start:    Start,
+						End:      Start,
+					}
+
+					mu.Lock()
+					g.objects = append(g.objects, generator.Object{
+						Name: op.File,
+						Size: op.Size,
+					})
+					g.prepareProgress(float64(len(g.objects)) / float64(g.CreateObjects))
+					mu.Unlock()
+					rcv := g.Collector.Receiver()
+					rcv <- op
+				}
+			}
+			cldone()
 		}
+		wg.Add(-1 * g.Concurrency) //done
+
 	} else {
 		for i := 0; i < g.Concurrency; i++ {
 			go func(i int) {
