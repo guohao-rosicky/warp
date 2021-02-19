@@ -47,7 +47,7 @@ var (
 		},
 		cli.StringFlag{
 			Name:  "putlogpath",
-			Value: "./testput.log",
+			Value: "",
 			Usage: "put access log.",
 		},
 	}
