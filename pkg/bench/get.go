@@ -115,7 +115,7 @@ func (g *Get) Prepare(ctx context.Context) error {
 								op := Operation{
 									OpType:   http.MethodPut,
 									Thread:   uint16(rand.Intn(g.Concurrency - 1)),
-									Size:     alog["size"].(int64),
+									Size:     int64(alog["size"].(float64)),
 									File:     alog["object"].(string),
 									ObjPerOp: 1,
 									Endpoint: client.EndpointURL().String(),
