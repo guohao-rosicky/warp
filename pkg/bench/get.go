@@ -18,12 +18,16 @@
 package bench
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,15 +42,27 @@ type Get struct {
 	RandomRanges  bool
 	Collector     *Collector
 	objects       generator.Objects
-
+	LogPath       string // add by guo.hao
+	PutLogPath    string // add by guo.hao
 	// Default Get options.
 	GetOpts minio.GetObjectOptions
 	Common
 }
 
+func (c *Common) readAccessLog(content map[string]interface{}) error {
+
+	return nil
+}
+
 // Prepare will create an empty bucket or delete any content already there
 // and upload a number of objects.
 func (g *Get) Prepare(ctx context.Context) error {
+
+	e := g.createAccessLog(ctx, g.LogPath)
+	if e != nil {
+		return e
+	}
+
 	if err := g.createEmptyBucket(ctx); err != nil {
 		return err
 	}
@@ -63,65 +79,147 @@ func (g *Get) Prepare(ctx context.Context) error {
 	var groupErr error
 	var mu sync.Mutex
 
-	for i := 0; i < g.Concurrency; i++ {
-		go func(i int) {
-			defer wg.Done()
-			src := g.Source()
-			for range obj {
-				opts := g.PutOpts
-				rcv := g.Collector.Receiver()
-				done := ctx.Done()
+	// 两种造数据的方式
+	// 1. 读取日志文件
+	// 2. 自己上传
+	if len(g.PutLogPath) > 0 {
+		res_file, put_log_err := os.Open(g.PutLogPath)
+		if put_log_err != nil {
+			return put_log_err
+		}
 
-				select {
-				case <-done:
-					return
-				default:
-				}
-				obj := src.Object()
-				client, cldone := g.Client()
-				op := Operation{
-					OpType:   http.MethodPut,
-					Thread:   uint16(i),
-					Size:     obj.Size,
-					File:     obj.Name,
-					ObjPerOp: 1,
-					Endpoint: client.EndpointURL().String(),
-				}
-				opts.ContentType = obj.ContentType
-				op.Start = time.Now()
-				res, err := client.PutObject(ctx, g.Bucket, obj.Name, obj.Reader, obj.Size, opts)
-				op.End = time.Now()
-				if err != nil {
-					err := fmt.Errorf("upload error: %w", err)
-					g.Error(err)
-					mu.Lock()
-					if groupErr == nil {
-						groupErr = err
-					}
-					mu.Unlock()
-					return
-				}
-				obj.VersionID = res.VersionID
-				if res.Size != obj.Size {
-					err := fmt.Errorf("short upload. want: %d, got %d", obj.Size, res.Size)
-					g.Error(err)
-					mu.Lock()
-					if groupErr == nil {
-						groupErr = err
-					}
-					mu.Unlock()
-					return
-				}
-				cldone()
-				mu.Lock()
-				obj.Reader = nil
-				g.objects = append(g.objects, *obj)
-				g.prepareProgress(float64(len(g.objects)) / float64(g.CreateObjects))
-				mu.Unlock()
-				rcv <- op
+		rd := bufio.NewReader(res_file)
+		for {
+			line, err := rd.ReadString('\n') //以'\n'为结束符读入一行
+			if err != nil || io.EOF == err {
+				break
 			}
-		}(i)
+			client, cldone := g.Client()
+			//{"bucket":"test01","cost":946923.896776,"etag":"","msg":"","object":"lE7rQRnWDCmVKOXk.csv","size":97537030,"status":"succ"}
+			//{"bucket":"","cost":1200742.249267,"etag":"","msg":"Put \"http://ozone.s3gtest.qihoo.net/test01/M2QHUPjT5P%29NpQiX.csv\": net/http: timeout awaiting response headers","object":"","size":0,"status":"err"}
+			alog := make(map[string]interface{})
+			err1 := json.Unmarshal([]byte(strings.TrimSpace(line)), &alog)
+			if err1 != nil {
+				continue
+			}
+			s, ok := alog["status"]
+			if ok {
+				ss := s.(string)
+				if ss == "succ" {
+					Start := time.Now()
+					op := Operation{
+						OpType:   http.MethodPut,
+						Thread:   uint16(rand.Intn(g.Concurrency - 1)),
+						Size:     alog["size"].(int64),
+						File:     alog["object"].(string),
+						ObjPerOp: 1,
+						Endpoint: client.EndpointURL().String(),
+						Start:    Start,
+						End:      Start,
+					}
+					rcv := g.Collector.Receiver()
+					rcv <- op
+				}
+			}
+			cldone()
+		}
+	} else {
+		for i := 0; i < g.Concurrency; i++ {
+			go func(i int) {
+				defer wg.Done()
+				src := g.Source()
+				for range obj {
+					opts := g.PutOpts
+					rcv := g.Collector.Receiver()
+					done := ctx.Done()
+
+					select {
+					case <-done:
+						return
+					default:
+					}
+					obj := src.Object()
+					client, cldone := g.Client()
+					op := Operation{
+						OpType:   http.MethodPut,
+						Thread:   uint16(i),
+						Size:     obj.Size,
+						File:     obj.Name,
+						ObjPerOp: 1,
+						Endpoint: client.EndpointURL().String(),
+					}
+					opts.ContentType = obj.ContentType
+					op.Start = time.Now()
+					res, err := client.PutObject(ctx, g.Bucket, obj.Name, obj.Reader, obj.Size, opts)
+					op.End = time.Now()
+					writeLog := false
+					latency := op.End.Sub(op.Start).Seconds() * 1000
+
+					slow := op.End.Sub(op.Start).Seconds() < float64(obj.Size/1024/1024)
+
+					if err != nil {
+						err := fmt.Errorf("upload error: %w", err)
+						g.Error(err)
+						mu.Lock()
+						if groupErr == nil {
+							groupErr = err
+						}
+						mu.Unlock()
+
+						writeLog = true
+						m := make(map[string]interface{})
+						m["status"] = "err"
+						m["action"] = "put"
+						m["bucket"] = g.Bucket
+						m["object"] = obj.Name
+						m["cost"] = latency
+						m["etag"] = res.ETag
+						m["size"] = res.Size
+						m["msg"] = op.Err
+						m["start"] = op.Start.Format("2006-01-02T15:04:05")
+						m["slow"] = slow
+						g.writeAccessLog(m)
+
+						return
+					}
+					obj.VersionID = res.VersionID
+					if res.Size != obj.Size {
+						err := fmt.Errorf("short upload. want: %d, got %d", obj.Size, res.Size)
+						g.Error(err)
+						mu.Lock()
+						if groupErr == nil {
+							groupErr = err
+						}
+						mu.Unlock()
+						return
+					}
+					if !writeLog {
+						m := make(map[string]interface{})
+						m["status"] = "succ"
+						m["action"] = "put"
+						m["bucket"] = res.Bucket
+						m["object"] = res.Key
+						m["cost"] = latency
+						m["etag"] = res.ETag
+						m["size"] = res.Size
+						m["msg"] = op.Err
+						m["start"] = op.Start.Format("2006-01-02T15:04:05")
+						m["slow"] = slow
+						g.writeAccessLog(m)
+					}
+
+					cldone()
+					mu.Lock()
+					obj.Reader = nil
+					g.objects = append(g.objects, *obj)
+					g.prepareProgress(float64(len(g.objects)) / float64(g.CreateObjects))
+					mu.Unlock()
+					rcv <- op
+				}
+			}(i)
+		}
 	}
+
 	wg.Wait()
 	return groupErr
 }
@@ -194,11 +292,29 @@ func (g *Get) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 				op.Start = time.Now()
 				var err error
 				opts.VersionID = obj.VersionID
+				writeLog := false
 				o, err := client.GetObject(nonTerm, g.Bucket, obj.Name, opts)
 				if err != nil {
 					g.Error("download error:", err)
 					op.Err = err.Error()
 					op.End = time.Now()
+
+					latency := op.End.Sub(op.Start).Seconds() * 1000
+					slow := op.End.Sub(op.Start).Seconds() < float64(obj.Size/1024/1024)
+					writeLog = true
+					m := make(map[string]interface{})
+					m["status"] = "err"
+					m["action"] = "get"
+					m["bucket"] = g.Bucket
+					m["object"] = obj.Name
+					m["cost"] = latency
+					m["etag"] = ""
+					m["size"] = op.Size
+					m["msg"] = op.Err
+					m["start"] = op.Start.Format("2006-01-02T15:04:05")
+					m["slow"] = slow
+					g.writeAccessLog(m)
+
 					rcv <- op
 					cldone()
 					continue
@@ -215,6 +331,24 @@ func (g *Get) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 					op.Err = fmt.Sprint("unexpected download size. want:", op.Size, ", got:", n)
 					g.Error(op.Err)
 				}
+
+				if !writeLog {
+					latency := op.End.Sub(op.Start).Seconds() * 1000
+					slow := op.End.Sub(op.Start).Seconds() < float64(obj.Size/1024/1024)
+					m := make(map[string]interface{})
+					m["status"] = "succ"
+					m["action"] = "get"
+					m["bucket"] = g.Bucket
+					m["object"] = obj.Name
+					m["cost"] = latency
+					m["etag"] = ""
+					m["size"] = op.Size
+					m["msg"] = op.Err
+					m["start"] = op.Start.Format("2006-01-02T15:04:05")
+					m["slow"] = slow
+					g.writeAccessLog(m)
+				}
+
 				rcv <- op
 				cldone()
 				o.Close()

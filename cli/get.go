@@ -40,6 +40,16 @@ var (
 			Name:  "range",
 			Usage: "Do ranged get operations. Will request with random offset and length.",
 		},
+		cli.StringFlag{
+			Name:  "logpath",
+			Value: "./test.log",
+			Usage: "access log.",
+		},
+		cli.StringFlag{
+			Name:  "putlogpath",
+			Value: "./testput.log",
+			Usage: "put access log.",
+		},
 	}
 )
 
@@ -78,6 +88,8 @@ func mainGet(ctx *cli.Context) error {
 		RandomRanges:  ctx.Bool("range"),
 		CreateObjects: ctx.Int("objects"),
 		GetOpts:       minio.GetObjectOptions{ServerSideEncryption: sse},
+		LogPath:       ctx.String("logpath"),    // add by guo.hao
+		PutLogPath:    ctx.String("putlogpath"), // add by guo.hao
 	}
 	return runBench(ctx, &b)
 }

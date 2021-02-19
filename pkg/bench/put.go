@@ -92,18 +92,23 @@ func (u *Put) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 				writeLog := false
 				latency := op.End.Sub(op.Start).Seconds() * 1000
 
+				slow := op.End.Sub(op.Start).Seconds() < float64(obj.Size/1024/1024)
+
 				if err != nil {
 					u.Error("upload error: ", err)
 					op.Err = err.Error()
 					writeLog = true
 					m := make(map[string]interface{})
 					m["status"] = "err"
-					m["bucket"] = res.Bucket
-					m["object"] = res.Key
+					m["action"] = "put"
+					m["bucket"] = u.Bucket
+					m["object"] = obj.Name
 					m["cost"] = latency
 					m["etag"] = res.ETag
 					m["size"] = res.Size
 					m["msg"] = op.Err
+					m["start"] = op.Start.Format("2006-01-02T15:04:05")
+					m["slow"] = slow
 					u.writeAccessLog(m)
 				}
 				obj.VersionID = res.VersionID
@@ -118,12 +123,15 @@ func (u *Put) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 				if !writeLog {
 					m := make(map[string]interface{})
 					m["status"] = "succ"
+					m["action"] = "put"
 					m["bucket"] = res.Bucket
 					m["object"] = res.Key
 					m["cost"] = latency
 					m["etag"] = res.ETag
 					m["size"] = res.Size
 					m["msg"] = op.Err
+					m["start"] = op.Start.Format("2006-01-02T15:04:05")
+					m["slow"] = slow
 					u.writeAccessLog(m)
 				}
 
