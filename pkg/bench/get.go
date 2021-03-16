@@ -108,9 +108,14 @@ func (g *Get) Prepare(ctx context.Context) error {
 				ss := s.(string)
 				if ss == "succ" {
 					Start := time.Now()
+					threadNum := uint16(rand.Intn(g.Concurrency - 1))
+					if g.Concurrency == 1 {
+						threadNum = uint16(0)
+					}
+
 					op := Operation{
 						OpType:   http.MethodPut,
-						Thread:   uint16(rand.Intn(g.Concurrency - 1)),
+						Thread:   threadNum,
 						Size:     int64(alog["size"].(float64)),
 						File:     alog["object"].(string),
 						ObjPerOp: 1,
