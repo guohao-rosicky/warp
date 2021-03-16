@@ -108,9 +108,9 @@ func (g *Get) Prepare(ctx context.Context) error {
 				ss := s.(string)
 				if ss == "succ" {
 					Start := time.Now()
-					threadNum := uint16(rand.Intn(g.Concurrency - 1))
-					if g.Concurrency == 1 {
-						threadNum = uint16(0)
+					threadNum := uint16(0)
+					if g.Concurrency > 1 {
+						threadNum = uint16(rand.Intn(g.Concurrency - 1))
 					}
 
 					op := Operation{
