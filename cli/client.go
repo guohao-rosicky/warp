@@ -45,6 +45,7 @@ import (
 type hostSelectType string
 
 const (
+	hostSelectTypeRand       hostSelectType = "rand"
 	hostSelectTypeRoundrobin hostSelectType = "roundrobin"
 	hostSelectTypeWeighed    hostSelectType = "weighed"
 )
@@ -64,6 +65,20 @@ func newClient(ctx *cli.Context) func() (cl *minio.Client, done func()) {
 	}
 	hostSelect := hostSelectType(ctx.String("host-select"))
 	switch hostSelect {
+	case hostSelectTypeRand:
+		var mu sync.Mutex
+		clients := make([]*minio.Client, len(hosts))
+		for i := range hosts {
+			cl, err := getClient(ctx, hosts[i])
+			fatalIf(probe.NewError(err), "Unable to create MinIO client")
+			clients[i] = cl
+		}
+		return func() (*minio.Client, func()) {
+			mu.Lock()
+			now := rand.Intn(len(clients))
+			mu.Unlock()
+			return clients[now], func() {}
+		}
 	case hostSelectTypeRoundrobin:
 		// Do round-robin.
 		var current int

@@ -189,7 +189,7 @@ var ioFlags = []cli.Flag{
 	cli.StringFlag{
 		Name:  "host-select",
 		Value: string(hostSelectTypeWeighed),
-		Usage: fmt.Sprintf("Host selection algorithm. Can be %q or %q", hostSelectTypeWeighed, hostSelectTypeRoundrobin),
+		Usage: fmt.Sprintf("Host selection algorithm. Can be %q or %q or %q", hostSelectTypeWeighed, hostSelectTypeRoundrobin, hostSelectTypeRand),
 	},
 	cli.IntFlag{
 		Name:  "concurrent",
