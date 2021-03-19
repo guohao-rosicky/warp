@@ -194,6 +194,7 @@ func (g *Get) Prepare(ctx context.Context) error {
 						m["msg"] = op.Err
 						m["start"] = op.Start.Format("2006-01-02T15:04:05")
 						m["slow"] = slow
+						m["endpoint"] = op.Endpoint
 						g.writeAccessLog(m)
 
 						return
@@ -221,6 +222,7 @@ func (g *Get) Prepare(ctx context.Context) error {
 						m["msg"] = op.Err
 						m["start"] = op.Start.Format("2006-01-02T15:04:05")
 						m["slow"] = slow
+						m["endpoint"] = op.Endpoint
 						g.writeAccessLog(m)
 					}
 
