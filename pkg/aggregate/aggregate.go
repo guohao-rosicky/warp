@@ -197,7 +197,7 @@ func Aggregate(o bench.Operations, opts Options) Aggregated {
 			a.N = len(ops)
 			if len(segs) <= 1 {
 				//a.Skipped = true
-				//return
+				return
 			}
 
 			allOps := ops
@@ -206,7 +206,7 @@ func Aggregate(o bench.Operations, opts Options) Aggregated {
 				ops = ops.FilterSuccessful()
 				if len(ops) == 0 {
 					//a.Skipped = true
-					//return
+					return
 				}
 			}
 			total := ops.Total(!opts.Prefiltered)
