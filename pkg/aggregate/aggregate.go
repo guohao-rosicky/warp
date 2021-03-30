@@ -195,8 +195,10 @@ func Aggregate(o bench.Operations, opts Options) Aggregated {
 				MultiOp:        false,
 			})
 			a.N = len(ops)
+			fmt.Printf("segs num: %d \n", len(segs))
+			fmt.Printf("errs num: %d \n", len(errs))
 			if len(segs) <= 1 {
-				//a.Skipped = true
+				a.Skipped = true
 				return
 			}
 
@@ -205,7 +207,7 @@ func Aggregate(o bench.Operations, opts Options) Aggregated {
 			if len(errs) > 0 {
 				ops = ops.FilterSuccessful()
 				if len(ops) == 0 {
-					//a.Skipped = true
+					a.Skipped = true
 					return
 				}
 			}
