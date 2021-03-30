@@ -188,13 +188,17 @@ func Aggregate(o bench.Operations, opts Options) Aggregated {
 			}
 
 			segmentDur := opts.DurFunc(ops.Duration())
-			segs := ops.Segment(bench.SegmentOptions{
+
+			sopts := bench.SegmentOptions{
 				From:           time.Time{},
 				PerSegDuration: segmentDur,
 				AllThreads:     !opts.Prefiltered,
 				MultiOp:        false,
-			})
+			}
+
+			segs := ops.Segment(sopts)
 			a.N = len(ops)
+			fmt.Println("sopts num: ", sopts)
 			fmt.Printf("segs num: %d \n", len(segs))
 			fmt.Printf("errs num: %d \n", len(errs))
 			if len(segs) <= 1 {
