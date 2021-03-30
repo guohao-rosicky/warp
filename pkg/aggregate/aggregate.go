@@ -198,7 +198,7 @@ func Aggregate(o bench.Operations, opts Options) Aggregated {
 
 			segs := ops.Segment(sopts)
 			a.N = len(ops)
-			fmt.Println("sopts num: ", sopts)
+			fmt.Println("sopts : ", sopts)
 			fmt.Printf("segs num: %d \n", len(segs))
 			fmt.Printf("errs num: %d \n", len(errs))
 			if len(segs) <= 1 {

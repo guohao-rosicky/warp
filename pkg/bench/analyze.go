@@ -151,6 +151,9 @@ func (o Operations) Segment(so SegmentOptions) Segments {
 	if e := o.Endpoints(); len(e) == 1 {
 		host = e[0]
 	}
+
+	fmt.Println("start:", start, "end:", end, "seg_start:", segStart, "so.PerSegDuration:", so.PerSegDuration)
+
 	for segStart.Before(end.Add(-so.PerSegDuration)) {
 		s := Segment{
 			OpType:     o.FirstOpType(),
