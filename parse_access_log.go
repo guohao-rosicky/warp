@@ -78,7 +78,9 @@ func GetGMT(update_time time.Time) string {
 
 	location, _ := time.LoadLocation("GMT")
 
-	return update_time.In(location).Format(time.RFC3339Nano)
+	//return update_time.In(location).Format(time.RFC3339Nano)
+	//return update_time.In(location).Format("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX")
+	return update_time.In(location).Format("2006-01-02T15:04:05.999999999+08:00")
 
 }
 
