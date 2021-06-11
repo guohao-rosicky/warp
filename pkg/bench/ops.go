@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	humanize "github.com/dustin/go-humanize"
+	"github.com/dustin/go-humanize"
 	"github.com/minio/minio/pkg/console"
 )
 
@@ -770,12 +770,15 @@ func (o Operations) ActiveTimeRange(allThreads bool) (start, end time.Time) {
 		if ended.After(start) {
 			start = ended
 		}
-	}
+	} // 最早结束的时间作为start，最晚开始的时间作为end，start在end后则都取start
 	for _, started := range lastStarted {
 		if end.After(started) {
 			end = started
 		}
 	}
+
+	fmt.Println("ActiveTimeRange start:", start, "end:", end)
+
 	if start.After(end) {
 		return start, start
 	}

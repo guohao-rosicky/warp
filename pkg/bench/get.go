@@ -20,10 +20,10 @@ package bench
 import (
 	"bufio"
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -44,6 +44,7 @@ type Get struct {
 	objects       generator.Objects
 	LogPath       string // add by guo.hao
 	PutLogPath    string // add by guo.hao
+	LogType       string // add by guo.hao
 	// Default Get options.
 	GetOpts minio.GetObjectOptions
 	Common
@@ -96,45 +97,128 @@ func (g *Get) Prepare(ctx context.Context) error {
 			}
 
 			client, cldone := g.Client()
+
 			//{"bucket":"test01","cost":946923.896776,"etag":"","msg":"","object":"lE7rQRnWDCmVKOXk.csv","size":97537030,"status":"succ"}
 			//{"bucket":"","cost":1200742.249267,"etag":"","msg":"Put \"http://ozone.s3gtest.qihoo.net/test01/M2QHUPjT5P%29NpQiX.csv\": net/http: timeout awaiting response headers","object":"","size":0,"status":"err"}
-			alog := make(map[string]interface{})
-			err1 := json.Unmarshal([]byte(strings.TrimSpace(line)), &alog)
-			if err1 != nil {
-				continue
-			}
-			s, ok := alog["status"]
-			if ok {
-				ss := s.(string)
-				if ss == "succ" {
-					Start := time.Now()
-					threadNum := uint16(0)
-					if g.Concurrency > 1 {
-						threadNum = uint16(rand.Intn(g.Concurrency - 1))
-					}
+			if g.LogType == "normal" {
+				alog := make(map[string]interface{})
+				err1 := json.Unmarshal([]byte(strings.TrimSpace(line)), &alog)
+				if err1 != nil {
+					continue
+				}
+				s, ok := alog["status"]
+				if ok {
+					ss := s.(string)
+					if ss == "succ" {
+						Start := time.Now()
+						threadNum := uint16(0)
+						if g.Concurrency > 1 {
+							threadNum = uint16(rand.Intn(g.Concurrency - 1))
+						}
 
-					op := Operation{
-						OpType:   http.MethodPut,
-						Thread:   threadNum,
-						Size:     int64(alog["size"].(float64)),
-						File:     alog["object"].(string),
-						ObjPerOp: 1,
-						Endpoint: client.EndpointURL().String(),
-						Start:    Start,
-						End:      Start,
-					}
+						op := Operation{
+							OpType:   http.MethodPut,
+							Thread:   threadNum,
+							Size:     int64(alog["size"].(float64)),
+							File:     alog["object"].(string),
+							ObjPerOp: 1,
+							Endpoint: client.EndpointURL().String(),
+							Start:    Start,
+							End:      Start,
+						}
 
-					mu.Lock()
-					g.objects = append(g.objects, generator.Object{
-						Name: op.File,
-						Size: op.Size,
-					})
-					g.prepareProgress(float64(len(g.objects)) / float64(g.CreateObjects))
-					mu.Unlock()
-					rcv := g.Collector.Receiver()
-					rcv <- op
+						mu.Lock()
+						g.objects = append(g.objects, generator.Object{
+							Name: op.File,
+							Size: op.Size,
+						})
+						g.prepareProgress(float64(len(g.objects)) / float64(g.CreateObjects))
+						mu.Unlock()
+						rcv := g.Collector.Receiver()
+						rcv <- op
+					}
+				}
+			} else if g.LogType == "xstore" {
+				/*
+					{
+						"hostname": "cn-test-1.xstore.qihoo.net",
+						"datetime": "2021-06-09T18:15:59",
+						"request_id": "70677584-7b75-4024-afb4-a1bdb542ea5c",
+						"requester_id": -1,
+						"owner_id": -1,
+						"code": 200,
+						"cost": "3029",
+						"client_ip": "10.18.22.17",
+						"bucket": "test01",
+						"origin_bucket": "",
+						"cluster_id": "",
+						"operation": "PutObject",
+						"method": "PUT",
+						"key": "chinadaily1.txt",
+						"path": "test01/chinadaily1.txt",
+						"request_uri": "/test01/chinadaily1.txt",
+						"user_agent": "aws-sdk-java/1.11.543 Windows_10/10.0 Java_HotSpot(TM)_64-Bit_Server_VM/25.171-b11 java/1.8.0_171 vendor/Oracle_Corporation",
+						"length": 270,
+						"real_length": 270,
+						"object_size": 270,
+						"res_bytes_sent": 0,
+						"req_bytes_sent": 270,
+						"error_code": "",
+						"error_detail": "",
+						"version_id": "",
+						"host_id": "0ffd2e453a29156bc48c38e613de527e",
+						"tls_version": "",
+						"proto_version": "HTTP/1.1",
+						"range": "",
+						"copy_source": "",
+						"copy_source_bucket": "",
+						"copy_source_key": "",
+						"copy_range": "",
+						"etag": "",
+						"is_over_write": 0,
+						"old_object_size": 0
+					}
+				*/
+
+				alog := make(map[string]interface{})
+				err1 := json.Unmarshal([]byte(strings.TrimSpace(line)), &alog)
+				if err1 != nil {
+					continue
+				}
+				s, ok := alog["code"]
+				if ok {
+					ss := s.(int)
+					if ss == 200 {
+						Start := time.Now()
+						threadNum := uint16(0)
+						if g.Concurrency > 1 {
+							threadNum = uint16(rand.Intn(g.Concurrency - 1))
+						}
+
+						op := Operation{
+							OpType:   http.MethodPut,
+							Thread:   threadNum,
+							Size:     int64(alog["object_size"].(float64)),
+							File:     alog["key"].(string),
+							ObjPerOp: 1,
+							Endpoint: client.EndpointURL().String(),
+							Start:    Start,
+							End:      Start,
+						}
+
+						mu.Lock()
+						g.objects = append(g.objects, generator.Object{
+							Name: op.File,
+							Size: op.Size,
+						})
+						g.prepareProgress(float64(len(g.objects)) / float64(g.CreateObjects))
+						mu.Unlock()
+						rcv := g.Collector.Receiver()
+						rcv <- op
+					}
 				}
 			}
+
 			cldone()
 		}
 		wg.Add(-1 * g.Concurrency) //done
@@ -338,7 +422,11 @@ func (g *Get) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 					continue
 				}
 				fbr.r = o
-				n, err := io.Copy(ioutil.Discard, &fbr)
+
+				//add by guo.hao check md5
+				md5hash := md5.New()
+				n, err := io.Copy(md5hash, &fbr)
+				//n, err := io.Copy(ioutil.Discard, &fbr)
 				if err != nil {
 					g.Error("download error:", err)
 					op.Err = err.Error()
@@ -359,7 +447,7 @@ func (g *Get) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 					m["bucket"] = g.Bucket
 					m["object"] = obj.Name
 					m["cost"] = latency
-					m["etag"] = ""
+					m["etag"] = fmt.Sprintf("%x", md5hash.Sum(nil))
 					m["size"] = op.Size
 					m["msg"] = op.Err
 					m["start"] = op.Start.Format("2006-01-02T15:04:05")

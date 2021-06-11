@@ -50,6 +50,11 @@ var (
 			Value: "",
 			Usage: "put access log.",
 		},
+		cli.StringFlag{
+			Name:  "logtype",
+			Value: "normal",
+			Usage: "normal | xstore",
+		},
 	}
 )
 
@@ -90,6 +95,7 @@ func mainGet(ctx *cli.Context) error {
 		GetOpts:       minio.GetObjectOptions{ServerSideEncryption: sse},
 		LogPath:       ctx.String("logpath"),    // add by guo.hao
 		PutLogPath:    ctx.String("putlogpath"), // add by guo.hao
+		LogType:       ctx.String("logtype"),    // add by guo.hao
 	}
 	return runBench(ctx, &b)
 }
