@@ -9,6 +9,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -48,7 +49,9 @@ func main() {
 		end, _ := time.ParseInLocation("2006-01-02T15:04:05", alog["datetime"].(string), time.Local)
 
 		var i2 int32
-		i2 = alog["cost"].(int32) * -1
+
+		j, _ := strconv.ParseInt(alog["cost"].(string), 10, 32)
+		i2 = int32(j) * -1
 
 		start := end.Add(time.Duration(i2) * time.Millisecond)
 
