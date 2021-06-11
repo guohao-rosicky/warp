@@ -56,7 +56,7 @@ func main() {
 		start := end.Add(time.Duration(i2) * time.Millisecond)
 
 		fmt.Println(i, rand.Intn(200), alog["method"].(string), GetRandomString(6), 1, int64(alog["object_size"].(float64)), "http://test-ozone", alog["key"].(string),
-			"", "", GetGMT(start), GetGMT(end), alog["cost"].(int32)*1000000)
+			"", "", GetGMT(start), GetGMT(end), int32(j)*1000000)
 
 		i++
 	}
