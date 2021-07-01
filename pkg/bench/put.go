@@ -18,8 +18,11 @@
 package bench
 
 import (
+	"bytes"
 	"context"
+	"crypto/md5"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
@@ -82,11 +85,18 @@ func (u *Put) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 					ObjPerOp: 1,
 					Endpoint: client.EndpointURL().String(),
 				}
+				b, err := ioutil.ReadAll(obj.Reader)
+				reader1 := bytes.NewReader(b)
+
 				op.Start = time.Now()
 
 				myTerm, _ := context.WithTimeout(nonTerm, time.Duration((obj.Size/1024)+1)*time.Second)
 
-				res, err := client.PutObject(myTerm, u.Bucket, obj.Name, obj.Reader, obj.Size, opts)
+				md5hash := md5.New()
+				md5hash.Write(b)
+				etag := fmt.Sprintf("%x", md5hash.Sum(nil))
+
+				res, err := client.PutObject(myTerm, u.Bucket, obj.Name, reader1, obj.Size, opts)
 				//res, err := client.PutObject(nonTerm, u.Bucket, obj.Name, obj.Reader, obj.Size, opts)
 				op.End = time.Now()
 				writeLog := false
@@ -104,7 +114,8 @@ func (u *Put) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 					m["bucket"] = u.Bucket
 					m["object"] = obj.Name
 					m["cost"] = latency
-					m["etag"] = res.ETag
+					//m["etag"] = res.ETag
+					m["etag"] = etag
 					m["size"] = res.Size
 					m["msg"] = op.Err
 					m["start"] = op.Start.Format("2006-01-02T15:04:05")
@@ -128,7 +139,8 @@ func (u *Put) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 					m["bucket"] = res.Bucket
 					m["object"] = res.Key
 					m["cost"] = latency
-					m["etag"] = res.ETag
+					//m["etag"] = res.ETag
+					m["etag"] = etag
 					m["size"] = res.Size
 					m["msg"] = op.Err
 					m["start"] = op.Start.Format("2006-01-02T15:04:05")
