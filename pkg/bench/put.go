@@ -88,13 +88,13 @@ func (u *Put) Start(ctx context.Context, wait chan struct{}) (Operations, error)
 				b, err := ioutil.ReadAll(obj.Reader)
 				reader1 := bytes.NewReader(b)
 
-				op.Start = time.Now()
-
 				myTerm, _ := context.WithTimeout(nonTerm, time.Duration((obj.Size/1024)+1)*time.Second)
 
 				md5hash := md5.New()
 				md5hash.Write(b)
 				etag := fmt.Sprintf("%x", md5hash.Sum(nil))
+
+				op.Start = time.Now()
 
 				res, err := client.PutObject(myTerm, u.Bucket, obj.Name, reader1, obj.Size, opts)
 				//res, err := client.PutObject(nonTerm, u.Bucket, obj.Name, obj.Reader, obj.Size, opts)
